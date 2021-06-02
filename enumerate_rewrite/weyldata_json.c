@@ -4,6 +4,7 @@
 
 #include <strings.h>
 #include <stdio.h>
+#include <time.h>
 
 int main(int argc, const char *argv[])
 {
@@ -18,7 +19,7 @@ int main(int argc, const char *argv[])
 
   // read arguments
 
-  ERROR(argc < 2, "Too few arguments!\n\nUsage is '%s A2A3' or '%s A2A3 -abc -abc' with\nA2,A3 simple Weyl factors and abc,abc left/right invariance.\n\n",argv[0],argv[0]);
+  ERROR(argc < 2, "Too few arguments!\n\nUsage is \"%s A2A3\" or \"%s A2A3 -abc -abc\" with\nA2,A3 simple Weyl factors and abc,abc left/right invariance.\n\n",argv[0],argv[0]);
   
   // Count the number of simple factors in the semisimple Weyl group
   type.n = strlen(argv[1])/2;
@@ -63,19 +64,29 @@ int main(int argc, const char *argv[])
   weyl_cartan_matrix(type, cartan_matrix); //cartan matrix
 
   // JSON OUTPUT BEGINS HERE
+  time_t now;
+  struct tm * local;
+  char buffer [80];
+  time(&now);
+  local = localtime(&now);
+  strftime(buffer,80,"%F_%R",local);
+
   fprintf(stdout,"{");
-  fprintf(stdout, "name:'%s',\n",argv[1]);
-  fprintf(stdout, "summands:[");
+  fprintf(stdout,"\"timestamp\":\"%s\",\n",buffer);
+  fprintf(stdout,"\"creator\":\"%s\",\n",argv[0]);
+  fprintf(stdout,"\"version\":\"0.0.1\",\n");
+  fprintf(stdout, "\"name\":\"%s\",\n",argv[1]);
+  fprintf(stdout, "\"summands\":[");
   for (int i=0; i<type.n; i++){
-    fprintf(stdout, "'%c%d'",type.factors[i].series,type.factors[i].rank);
+    fprintf(stdout, "\"%c%d\"",type.factors[i].series,type.factors[i].rank);
     if (i<type.n-1) {
       fprintf(stdout, ",");
     }
   }
   fprintf(stdout, "],\n");
-  fprintf(stdout, "rank: %d,\norder: %d,\nmax_len: %d,\nnum_cosets: %d,\n", rank, order, positive, dq->count);
+  fprintf(stdout, "\"rank\": %d,\n\"order\": %d,\n\"max_len\": %d,\n\"num_cosets\": %d,\n", rank, order, positive, dq->count);
   
-  fprintf(stdout, "cartan_matrix:\n[");
+  fprintf(stdout, "\"cartan_matrix\":\n[");
   for (int i=0; i<rank; i++) {
       fprintf(stdout, "[ ");
       for (int j=0; j<rank; j++){
