@@ -9,9 +9,7 @@
 int main(int argc, const char *argv[])
 {
   semisimple_type_t type;
-  unsigned long right_invariance, left_invariance;
   int rank, order, positive;
-  int fixpoints;
 
   doublequotient_t *dq;
 
@@ -19,7 +17,7 @@ int main(int argc, const char *argv[])
 
   // read arguments
 
-  ERROR(argc < 2, "Too few arguments!\n\nUsage is \"%s A2A3\" or \"%s A2A3 -abc -abc\" with\nA2,A3 simple Weyl factors and abc,abc left/right invariance.\n\n",argv[0],argv[0]);
+  ERROR(argc < 2, "Too few arguments!\n\nUsage is \"%s A2A3\" with\nA2,A3 simple Weyl factors.\n\n",argv[0]);
   
   // Count the number of simple factors in the semisimple Weyl group
   type.n = strlen(argv[1])/2;
@@ -27,33 +25,25 @@ int main(int argc, const char *argv[])
 
   // Allocate memory, then read in the actual simple factors by letter/number, e.g. A5 is series 'A' and rank '5'. Series is A-G and the max rank is 9.
   type.factors = (simple_type_t*)malloc(type.n*sizeof(simple_type_t));
+  int index_shift = 0;
+  int new_rank = 0;
+  int new_n = 0;
   for(int i = 0; i < type.n; i++) {
-    type.factors[i].series = argv[1][2*i];
-    type.factors[i].rank = argv[1][2*i+1] - '0';
+    if (2*i+index_shift+1>2*type.n){
+      break;
+    }
+    type.factors[i].series = argv[1][2*i+index_shift];
+    new_rank = argv[1][2*i+1+index_shift] - '0';
+    while(2*i+1+index_shift<2*type.n && argv[1][2*i+1+index_shift+1]>='0' && argv[1][2*i+1+index_shift+1] <= '9'){
+      new_rank = new_rank*10 + (argv[1][2*i+1+index_shift+1] - '0');
+      index_shift = index_shift+1;
+    }
+    type.factors[i].rank = new_rank;
+    new_n = i+1;
     // fprintf(stdout, "type.factors[%d].series=%c, type.factors[%d].rank=%d\n\n",i,type.factors[i].series,i,type.factors[i].rank);
-    ERROR(argv[1][2*i] < 'A' || argv[1][2*i] > 'G' || argv[1][2*i+1] < '1' || argv[1][2*i+1] > '9', "Arguments must be Xn with X out of A-G and n out of 1-9\n");
+    // ERROR(argv[1][2*i] < 'A' || argv[1][2*i] > 'G' || argv[1][2*i+1] < '1' || argv[1][2*i+1] > '9', "Arguments must be Xn with X out of A-G and n out of 1-9\n");
   }
-
-  left_invariance = right_invariance = 0;
-  // Additional command line arguments that were not factors are the left/right invariance.
-  if(argc >= 3) {
-    if(strcmp(argv[2], "-") != 0){
-      printf("%s\n",argv[type.n+1]);
-      for(int i = 0; i < strlen(argv[type.n + 1]); i++)
-	      left_invariance |= (1 << (argv[type.n + 1][i] - 'a'));
-    }
-    if(strcmp(argv[3], "-") != 0){
-      for(int i = 0; i < strlen(argv[type.n + 2]); i++)
-	      right_invariance |= (1 << (argv[type.n + 2][i] - 'a'));
-    }
-  }
-
-  // generate graph
-  // dq is the Weyl graph
-
-  dq = weyl_generate_bruhat(type, left_invariance, right_invariance);
-
-  // print stuff
+  type.n = new_n;
 
   rank = weyl_rank(type);                // number of simple roots
   order = weyl_order(type);              // number of Weyl group elements
@@ -69,13 +59,13 @@ int main(int argc, const char *argv[])
   char buffer [80];
   time(&now);
   local = localtime(&now);
-  strftime(buffer,80,"%F_%R",local);
+  strftime(buffer,80,"%FT%X.000Z",local);
 
   fprintf(stdout,"{");
-  fprintf(stdout,"\"timestamp\":\"%s\",\n",buffer);
+  fprintf(stdout,"\"timestamp\":\"%s\",\n",buffer); // TODO: Make it more like JSON
   fprintf(stdout,"\"creator\":\"%s\",\n",argv[0]);
   fprintf(stdout,"\"version\":\"0.0.1\",\n");
-  fprintf(stdout, "\"name\":\"%s\",\n",argv[1]);
+  fprintf(stdout, "\"cartan_type\":\"%s\",\n",argv[1]);
   fprintf(stdout, "\"summands\":[");
   for (int i=0; i<type.n; i++){
     fprintf(stdout, "\"%c%d\"",type.factors[i].series,type.factors[i].rank);
@@ -84,7 +74,7 @@ int main(int argc, const char *argv[])
     }
   }
   fprintf(stdout, "],\n");
-  fprintf(stdout, "\"rank\": %d,\n\"order\": %d,\n\"max_len\": %d,\n\"num_cosets\": %d,\n", rank, order, positive, dq->count);
+  fprintf(stdout, "\"rank\": %d,\n\"weyl_order\": %d,\n\"max_len\": %d,\n", rank, order, positive);
   
   fprintf(stdout, "\"cartan_matrix\":\n[");
   for (int i=0; i<rank; i++) {
@@ -110,9 +100,7 @@ int main(int argc, const char *argv[])
   }
   fprintf(stdout, "}\n");
 
-
-  // Deconstruct the dq
-  weyl_destroy_bruhat(dq);
+  // free memory back
   free(type.factors);
 
   return 0;
