@@ -22,14 +22,14 @@ int main(int argc, const char *argv[])
   
   // Count the number of simple factors in the semisimple Weyl group
   type.n = strlen(argv[1])/2;
-  fprintf(stdout, "type.n=%d\n\n",type.n);
+  // fprintf(stdout, "type.n=%d\n\n",type.n);
 
   // Allocate memory, then read in the actual simple factors by letter/number, e.g. A5 is series 'A' and rank '5'. Series is A-G and the max rank is 9.
   type.factors = (simple_type_t*)malloc(type.n*sizeof(simple_type_t));
   for(int i = 0; i < type.n; i++) {
     type.factors[i].series = argv[1][2*i];
     type.factors[i].rank = argv[1][2*i+1] - '0';
-    fprintf(stdout, "type.factors[%d].series=%c, type.factors[%d].rank=%d\n\n",i,type.factors[i].series,i,type.factors[i].rank);
+    // fprintf(stdout, "type.factors[%d].series=%c, type.factors[%d].rank=%d\n\n",i,type.factors[i].series,i,type.factors[i].rank);
     ERROR(argv[1][2*i] < 'A' || argv[1][2*i] > 'G' || argv[1][2*i+1] < '1' || argv[1][2*i+1] > '9', "Arguments must be Xn with X out of A-G and n out of 1-9\n");
   }
 
@@ -62,9 +62,20 @@ int main(int argc, const char *argv[])
   cartan_matrix = (int*)malloc(rank*rank*sizeof(int));
   weyl_cartan_matrix(type, cartan_matrix); //cartan matrix
 
-  fprintf(stdout, "Rank: %d\nOrder: %d\nPositive Roots: %d\nCosets: %d\n\n", rank, order, positive, dq->count);
+  // JSON OUTPUT BEGINS HERE
+  fprintf(stdout,"{");
+  fprintf(stdout, "name:'%s',\n",argv[1]);
+  fprintf(stdout, "summands:[");
+  for (int i=0; i<type.n; i++){
+    fprintf(stdout, "'%c%d'",type.factors[i].series,type.factors[i].rank);
+    if (i<type.n-1) {
+      fprintf(stdout, ",");
+    }
+  }
+  fprintf(stdout, "],\n");
+  fprintf(stdout, "rank: %d,\norder: %d,\nmax_len: %d,\nnum_cosets: %d,\n", rank, order, positive, dq->count);
   
-  fprintf(stdout, "Cartan matrix for %s:\n",argv[1]);
+  fprintf(stdout, "cartan_matrix:\n[");
   for (int i=0; i<rank; i++) {
       fprintf(stdout, "[ ");
       for (int j=0; j<rank; j++){
@@ -73,11 +84,20 @@ int main(int argc, const char *argv[])
           if (cartan_matrix[rank*i+j]>=0) {
               fprintf(stdout, " ");
           }
-          fprintf(stdout, "%d ",cartan_matrix[rank*i+j]);
+          fprintf(stdout, "%d",cartan_matrix[rank*i+j]);
+          if (j<rank-1) {
+            fprintf(stdout, ", ");
+          } else {
+            fprintf(stdout, " ");
+          }
       }
-      fprintf(stdout, "]\n");
+      if (i<rank-1){
+        fprintf(stdout, "],\n ");
+      } else {
+        fprintf(stdout, "]]\n");
+      }
   }
-  fprintf(stdout, "\n");
+  fprintf(stdout, "}\n");
 
 
   // Deconstruct the dq

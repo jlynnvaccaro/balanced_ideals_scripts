@@ -55,14 +55,14 @@ W = WeylGroup((["B",3]), "s")
 # print(cartan)
 
 cm = CartanMatrix([[2,-1,0],[-1,2,-1],[0,-2,2]])
-W = WeylGroup(cm)
+W = WeylGroup(cm, "s")
 for g in W.gens():
     print(g, "\n")
 
 print("XXXXXXX")
 
 cm2 = CartanMatrix([[2,-2,0],[-1,2,-1],[0,-1,2]])
-W2 = WeylGroup(cm2)
+W2 = WeylGroup(cm2, "s")
 for g in W2.gens():
     print(g, "\n")
 
