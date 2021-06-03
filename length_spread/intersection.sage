@@ -1,31 +1,40 @@
 import sys
 import utils
 
-def switcheroo(s,start=0,end=0):
-    "Returns a string with the interval start:end-1 reversed"
+def e_swap(s,start=0):
+    "Returns a string (or indexable object) with the first two letters in start:end-1 reversed"
+    return bcd_swap(s,start+1,start+3)
+
+def bcd_swap(s,start=0,end=0):
+    "Returns a string (or indexable object) with the interval start:end-1 reversed"
     if start == 0:
         return s[0:start] + s[end-1::-1] + s[end:]
     else:
         return s[0:start] + s[end-1:start-1:-1] + s[end:]
 
-def alphabet_transform(W):
+def alphabet_transform(W, alphabet=None):
     "Returns an alphabet transformed to translate from the enumerate to the sage convention"
-    alphabet = "abcdefghijklmnopqrstuvwxyz"
+    if alphabet is None:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
     start = 0
     end = 0
     type = W.cartan_type()
     try:
         t,n = type
         end += n
-        if t == "B" or t == "D":
-            alphabet=switcheroo(alphabet,start,end)
+        if t in ["B","C","D"]:
+            alphabet=bcd_swap(alphabet,start,end)
+        elif t == "E":
+            alphabet=e_swap(alphabet,start)
         return alphabet
     except:
         cartan = type.component_types()
         for t,n in cartan:
             end += n
-            if t=="B" or t == "D":
-                alphabet=switcheroo(alphabet,start,end)
+            if t in ["B","C","D"]:
+                alphabet=bcd_swap(alphabet,start,end)
+            elif t == "E":
+                alphabet=e_swap(alphabet,start)
             start += n
         return alphabet
 
@@ -60,34 +69,38 @@ def principal_ideal(x):
     W = x.parent()
     return W.bruhat_interval(W.one(),x)
 
-def killing_inner_product(elt1, elt2):
-    """Returns the Killing inner product"""
-    M1 = elt1.matrix().adjoint()
-    M2 = elt2.matrix()
-    # print(elt1, "\n", M1,"\n")
-    # print(elt2, "\n", M2,"\n")
-    print(elt1, elt2, elt1*elt2)
-    print(M1*M2)
-    print((M1*M2).trace())
-    return (M1*M2).trace()
+def abc_cartan_matrix_comparison(W, d):
+    """Compares the permuted Weyl cartan matrix with the one from the data struct d"""
+    num_gens = len(W.simple_reflections())
+    indices = alphabet_transform(W, [x for x in range(num_gens)])
+    sage_matrix = CartanMatrix(W)
+    d_matrix = d["cartan_matrix"]
+    for orig_i,i in enumerate(indices):
+        for orig_j,j in enumerate(indices):
+            if sage_matrix[i][j] != d_matrix[orig_i][orig_j]:
+                return False
+    return True
 
-def cartan_matrix_entry(row_elt, column_elt):
-    """Returns the row_elt,column_elt entry in the cartan matrix"""
-    if row_elt == column_elt:
-        return "2"
-    else:
-        return str(2*killing_inner_product(row_elt, column_elt) / killing_inner_product(column_elt, column_elt))
 
 def print_abc_cartan_matrix(W):
-    alphabet = alphabet_transform(W)
+    # alphabet = alphabet_transform(W)
     num_gens = len(W.simple_reflections())
+    indices = alphabet_transform(W, [x for x in range(num_gens)])
+    orig_matrix = CartanMatrix(W)
+    print("Original cartan matrix:")
+    print(orig_matrix)
+    print("Permuted cartan matrix:")
     matrix = ""
-    for r in alphabet[0:num_gens]:
-        gen_r = ab_to_s1s2(W,r)
-        matrix += "[ "
-        for c in alphabet[0:num_gens]:
-            gen_c = ab_to_s1s2(W,c)
-            matrix += cartan_matrix_entry(gen_r,gen_c) + " "
+    for i in indices:
+        matrix += "["
+        for orig_j,j in enumerate(indices):
+            m_entry = orig_matrix[i][j]
+            if orig_j!=0:
+                matrix += " "
+            if m_entry<0:
+                matrix += str(m_entry)
+            else:
+                matrix += " " + str(m_entry)
         matrix += "]\n"
     print(matrix)
 
@@ -107,7 +120,7 @@ def generating_set(I):
     for x in I:
         is_gen = True
         for g in gens:
-            # If g*x is an upper cover of x, then it's not a generator.
+            # If g*x or x*g an upper cover and in I, then x is not a bruhat ideal generator of I.
             if g*x in I and (g*x).length() > x.length():
                 is_gen = False
                 break
@@ -130,29 +143,28 @@ def perp(I):
 
 def print_core_hull(infile):
     d = utils.load_json_data(infile)
-    summands = d["summands"]
-    cartan = []
-    for s in summands:
-        print(s)
-        L = [s[0],int(s[1:])]
-        cartan.append(L)
-
+    cartan = d["summands"]
     G = WeylGroup(cartan, "s")# * WeylGroup(cartan, "s")
-
-
+    if "cartan_matrix" in d:
+        if abc_cartan_matrix_comparison(G,d):
+            print("Cartan matrix conversion worked!")
+        else:
+            print("Ugh, cartan matrix conversion failed")
+            exit(1)
+    else:
+        print("No cartan matrix to compare")
+    exit()
     core = set(principal_ideal(G.long_element()))
     hull = set()
-    Ideals = d["ideals"]
+    ideals = d["balanced_ideals"]
 
-    for I in Ideals:
+    for i in ideals:
         b_set = set()
-        for g in I:
+        for g in i["gen"]:
             word = ab_to_s1s2(G,g)
             b_set = union_ideal(b_set, word)
         core = core.intersection(b_set)
         hull = hull.union(b_set)
-
-
     
     print("Size of the core:",len(core))
     print("Size of the hull:",len(hull))
@@ -177,10 +189,10 @@ def print_core_hull(infile):
 
 if __name__=="__main__":
 
-    # if len(sys.argv) < 2:
-    #     raise TypeError("Requires an input arg, e.g. 'sage intersection.sage A3.json'")
+    if len(sys.argv) < 2:
+        raise TypeError("Requires an input arg, e.g. 'sage intersection.sage A3.json'")
 
-    # infile = sys.argv[1]
-    # print_core_hull(infile)
-    G = WeylGroup("A3","s")
-    print_abc_cartan_matrix(G)
+    infile = sys.argv[1]
+    print_core_hull(infile)
+    # G = WeylGroup(("E7"),"s")
+    # print_abc_cartan_matrix(G)

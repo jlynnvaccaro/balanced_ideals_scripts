@@ -45,6 +45,7 @@ def alphabet_transform(W):
             start += n
         return alphabet
 
+
 W = WeylGroup((["B",3]), "s")
 # print(alphabet_transform(W))
 # print(switcheroo("abcde",0,3))
