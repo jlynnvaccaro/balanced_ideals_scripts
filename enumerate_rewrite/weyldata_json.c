@@ -6,10 +6,148 @@
 #include <stdio.h>
 #include <time.h>
 
+char stringbuffer[100];
+
+typedef struct {
+  doublequotient_t *dq;
+  int rank;
+  int order;
+  int positive;
+  int *buffer;
+  int level;
+} info_t;
+
+static char* alphabetize(weylgroup_element_t *e, char *str)
+{
+  if(e->wordlength == 0)
+    sprintf(str, "1");
+  else {
+    for(int j = 0; j < e->wordlength; j++)
+      str[j] = e->word[j] + 'a';
+    str[e->wordlength] = 0;
+  }
+
+  return str;
+}
+
+void balanced_thickening_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
+{
+  static long totcount = 0;
+
+  if(ei->callback_data) {
+    info_t *info = (info_t*)ei->callback_data;
+
+    unsigned long right_invariance = FIRSTBITS(info->rank);
+    unsigned long left_invariance = FIRSTBITS(info->rank);
+
+    int bit1, bit2left, bit2right, left, right;
+
+    for(int i = 0; i < size; i++) {
+      bit1 = i < size/2 ? bv_get_bit(pos, i) : !bv_get_bit(pos, size - 1 - i);
+      for(int j = 0; j < info->rank; j++) {
+	left = info->dq->cosets[i].min->left[j]->coset->index;
+	right = info->dq->cosets[i].min->right[j]->coset->index;
+	bit2left = left < size/2 ? bv_get_bit(pos, left) : !bv_get_bit(pos, size - 1 - left);
+	bit2right = right < size/2 ? bv_get_bit(pos, right) : !bv_get_bit(pos, size - 1 - right);
+	if(bit1 != bit2left)
+	  left_invariance &= ~BIT(j);
+	if(bit1 != bit2right)
+	  right_invariance &= ~BIT(j);
+      }
+    }
+    if (totcount==0){
+      printf("[");
+    } else {
+      printf(",\n");
+    }
+
+    printf("{\"id\":%ld, \"left\": [", totcount++);
+    int second = 0;
+    for(int j = 0; j < info->rank; j++){
+      if (left_invariance & (1 << j)){
+        if (second==1){
+          printf(",");
+        }
+        printf("\"%c\"",j + 'a');
+        second = 1;
+      }
+    }
+    printf("], \"right\": [");
+    second = 0;
+    for(int j = 0; j < info->rank; j++){
+      if (right_invariance & (1 << j) ){
+        if (second==1){
+          printf(",");
+        }
+        printf("\"%c\"", j + 'a');
+        second = 1;
+      }
+    }
+    second = 0;
+    if(info->buffer) {
+      bitvec_t low, high;
+      bv_copy(pos, &low);
+      bv_negate(pos, &high);
+      printf("], \"gen\": [");
+      
+      for(int i = 0; i < size/2; i++) {
+	      if(!bv_get_bit(&high, i))
+	        continue;
+        if (second==1)
+          printf(",");
+	      printf("\"%s\"", alphabetize(info->dq->cosets[size-1-i].min, stringbuffer));
+        second = 1;
+
+	      bv_difference(&high, &ei->principal_neg[size-1-i], &high);
+	      bv_difference(&low,  &ei->principal_pos[size-1-i], &low);
+      }
+
+      for(int i = size/2 - 1; i >= 0; i--) {
+	      if(!bv_get_bit(&low, i))
+	        continue;
+        if (second==1)
+          printf(",");
+        printf("\"%s\"", alphabetize(info->dq->cosets[i].min, stringbuffer));
+        second = 1;
+
+	      bv_difference(&low, &ei->principal_pos[i], &low);
+      }
+    }
+
+    int max_length = 0;
+    for(int i = 0; i < size/2; i++) {
+      if(bv_get_bit(pos, i)) {
+	if(info->dq->cosets[i].max->wordlength > max_length)
+	  max_length = info->dq->cosets[i].max->wordlength;
+      } else {
+	if(info->dq->cosets[size-i-1].max->wordlength > max_length)
+	  max_length = info->dq->cosets[size-i-1].max->wordlength;
+      }
+    }
+
+    printf("]}");
+  }
+}
+
+void balanced_thickening_simple_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
+{
+  long *count = (long*)ei->callback_data;
+
+  if((++(*count)) % 100000000 == 0) {
+    bv_print(stderr, pos, size/2);
+    fprintf(stderr, "\n");
+  }
+}
+
 int main(int argc, const char *argv[])
 {
   semisimple_type_t type;
   int rank, order, positive;
+  int fixpoints;
+  const char* commands[3];
+  commands[0] = "all";
+  commands[1] = "elts";
+  commands[2] = "ideals";
 
   doublequotient_t *dq;
 
@@ -17,10 +155,11 @@ int main(int argc, const char *argv[])
 
   // read arguments
 
-  ERROR(argc < 2, "Too few arguments!\n\nUsage is \"%s A2A3\" with\nA2,A3 simple Weyl factors.\n\n",argv[0]);
+  ERROR(argc < 3, "Too few arguments!\n\nUsage is \"%s A2A3\" with\nA2,A3 simple Weyl factors.\n\n",argv[0]);
+
   
   // Count the number of simple factors in the semisimple Weyl group
-  type.n = strlen(argv[1])/2;
+  type.n = strlen(argv[2])/2;
   // fprintf(stdout, "type.n=%d\n\n",type.n);
 
   // Allocate memory, then read in the actual simple factors by letter/number, e.g. A5 is series 'A' and rank '5'. Series is A-G and the max rank is 9.
@@ -32,10 +171,10 @@ int main(int argc, const char *argv[])
     if (2*i+index_shift+1>2*type.n){
       break;
     }
-    type.factors[i].series = argv[1][2*i+index_shift];
-    new_rank = argv[1][2*i+1+index_shift] - '0';
-    while(2*i+1+index_shift<2*type.n && argv[1][2*i+1+index_shift+1]>='0' && argv[1][2*i+1+index_shift+1] <= '9'){
-      new_rank = new_rank*10 + (argv[1][2*i+1+index_shift+1] - '0');
+    type.factors[i].series = argv[2][2*i+index_shift];
+    new_rank = argv[2][2*i+1+index_shift] - '0';
+    while(2*i+1+index_shift<2*type.n && argv[2][2*i+1+index_shift+1]>='0' && argv[2][2*i+1+index_shift+1] <= '9'){
+      new_rank = new_rank*10 + (argv[2][2*i+1+index_shift+1] - '0');
       index_shift = index_shift+1;
     }
     type.factors[i].rank = new_rank;
@@ -62,11 +201,11 @@ int main(int argc, const char *argv[])
   strftime(buffer,80,"%FT%X.000Z",local);
 
   fprintf(stdout,"{");
-  fprintf(stdout,"\"timestamp\":\"%s\",\n",buffer); // TODO: Make it more like JSON
-  fprintf(stdout,"\"creator\":\"%s\",\n",argv[0]);
-  fprintf(stdout,"\"version\":\"0.0.1\",\n");
-  fprintf(stdout, "\"cartan_type\":\"%s\",\n",argv[1]);
-  fprintf(stdout, "\"summands\":[");
+  fprintf(stdout,"\"timestamp\": \"%s\",\n",buffer); // TODO: Make it more like JSON
+  fprintf(stdout,"\"creator\": \"%s\",\n",argv[0]);
+  fprintf(stdout,"\"version\": \"0.0.1\",\n");
+  fprintf(stdout, "\"cartan_type\": \"%s\",\n",argv[2]);
+  fprintf(stdout, "\"summands\": [");
   for (int i=0; i<type.n; i++){
     fprintf(stdout, "\"%c%d\"",type.factors[i].series,type.factors[i].rank);
     if (i<type.n-1) {
@@ -95,10 +234,64 @@ int main(int argc, const char *argv[])
       if (i<rank-1){
         fprintf(stdout, "],\n ");
       } else {
-        fprintf(stdout, "]]\n");
+        fprintf(stdout, "]]");
       }
   }
-  fprintf(stdout, "}\n");
+  
+  // print out weylgroup elements
+  if (strcmp(argv[1],"elts")==0) {
+    weylgroup_t *wgroup = weyl_generate(type); // TODO: This makes the code take much longer to run
+    fprintf(stdout, ",\n\"elements\": [");
+    for (int i=0; i<order; i++){
+      if (i!= 0){
+        fprintf(stdout, ", ");
+      }
+      fprintf(stdout, "\"%s\"", alphabetize(&wgroup->elements[i], stringbuffer));
+    }
+    fprintf(stdout,"]");
+    weyl_destroy(wgroup);
+  }
+  
+  // Print out the balanced ideals
+  if (strcmp(argv[1],"ideals")==0) {
+    dq = weyl_generate_bruhat(type, 0, 0);
+    // Check if there were no balanced ideals
+    fixpoints = 0;
+    for(int i = 0; i < dq->count; i++)
+      if(dq->cosets[i].opposite == &dq->cosets[i]) {
+        if(fixpoints == 0)
+          fprintf(stdout, "No balanced ideals since the longest element fixes the following cosets:");
+        fprintf(stdout, " %s", alphabetize(dq->cosets[i].min, stringbuffer));
+        fixpoints++;
+      }
+    if(fixpoints)
+      fprintf(stdout, "\n\n");
+
+    // If there were balanced ideals then print a message
+    if(!fixpoints) {
+      int *buffer = (int*)malloc(dq->count*sizeof(int));
+
+      info_t info;
+      info.dq = dq;
+      info.rank = weyl_rank(type);
+      info.order = weyl_order(type);
+      info.positive = weyl_positive(type);
+      info.buffer = buffer;
+
+      ERROR(dq->count > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
+
+      long count;
+      fprintf(stdout, ",\n\"balanced_ideals\":\n");
+      count = enumerate_balanced_thickenings(dq, balanced_thickening_callback, &info);
+      fprintf(stdout, "]");
+
+      // fprintf(stdout, "Found %ld balanced ideal%s\n", count, count == 1 ? "" : "s");
+    }
+    // Deconstruct the dq
+    weyl_destroy_bruhat(dq);
+  }
+
+  fprintf(stdout, "\n}\n");
 
   // free memory back
   free(type.factors);

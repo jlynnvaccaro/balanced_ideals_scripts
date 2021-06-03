@@ -5,6 +5,21 @@
 #include <strings.h>
 #include <stdio.h>
 
+char stringbuffer[100];
+
+static char* alphabetize(weylgroup_element_t *e, char *str)
+{
+  if(e->wordlength == 0)
+    sprintf(str, "1");
+  else {
+    for(int j = 0; j < e->wordlength; j++)
+      str[j] = e->word[j] + 'a';
+    str[e->wordlength] = 0;
+  }
+
+  return str;
+}
+
 int main(int argc, const char *argv[])
 {
   semisimple_type_t type;
@@ -50,7 +65,7 @@ int main(int argc, const char *argv[])
   // generate graph
   // dq is the Weyl graph
 
-  dq = weyl_generate_bruhat(type, left_invariance, right_invariance);
+  // dq = weyl_generate_bruhat(type, left_invariance, right_invariance);
 
   // print stuff
 
@@ -62,7 +77,7 @@ int main(int argc, const char *argv[])
   cartan_matrix = (int*)malloc(rank*rank*sizeof(int));
   weyl_cartan_matrix(type, cartan_matrix); //cartan matrix
 
-  fprintf(stdout, "Rank: %d\nOrder: %d\nPositive Roots: %d\nCosets: %d\n\n", rank, order, positive, dq->count);
+  fprintf(stdout, "Rank: %d\nOrder: %d\nPositive Roots: %d\n\n", rank, order, positive);
   
   fprintf(stdout, "Cartan matrix for %s:\n",argv[1]);
   for (int i=0; i<rank; i++) {
@@ -77,11 +92,23 @@ int main(int argc, const char *argv[])
       }
       fprintf(stdout, "]\n");
   }
+
+  // print out weylgroup elements
+  weylgroup_t *wgroup = weyl_generate(type);
+  fprintf(stdout, "\nElements:\n");
+  for (int i=0; i<order; i++){
+    if (i!= 0){
+      fprintf(stdout, ", ");
+    }
+    fprintf(stdout, "%s", alphabetize(&wgroup->elements[i], stringbuffer));
+    // fprintf(stdout, "%d, ", *wgroup->elements[i].word);
+  }
   fprintf(stdout, "\n");
 
 
   // Deconstruct the dq
-  weyl_destroy_bruhat(dq);
+  // weyl_destroy_bruhat(dq);
+  weyl_destroy(wgroup);
   free(type.factors);
 
   return 0;
