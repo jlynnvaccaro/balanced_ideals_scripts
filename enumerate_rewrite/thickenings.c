@@ -71,7 +71,14 @@ static long enumerate_tree(const enumeration_info_t *info, const bitvec_t *pos, 
   return count;
 }
 
-static void generate_principal_ideals(doublequotient_t *dq, bitvec_t *pos, bitvec_t *neg, int *is_slim)
+static long principal(const bitvec_t *useless, int i, const enumeration_info_t *info)
+{
+  if(info->callback)
+    info->callback(useless, i, info);
+  return 1;
+}
+
+static void generate_principal_ideals(doublequotient_t *dq, bitvec_t *pos, bitvec_t *neg, int *is_slim, int *is_fat)
 {
   queue_t queue;
   int current;
@@ -98,13 +105,25 @@ static void generate_principal_ideals(doublequotient_t *dq, bitvec_t *pos, bitve
     is_slim[i] = 1;
     for(int j = 0; j < size/2; j++)
       if(principal[j])
-	bv_set_bit(&pos[i], j);
+	      bv_set_bit(&pos[i], j);
     for(int j = 0; j < size/2; j++)
       if(principal[size - 1 - j]) {
-	bv_set_bit(&neg[i], j);
-	if(bv_get_bit(&pos[i], j))
-	  is_slim[i] = 0;
+	      bv_set_bit(&neg[i], j);
+	      if(bv_get_bit(&pos[i], j))
+	        is_slim[i] = 0;
       }
+    int pos_count,neg_count;
+    pos_count = bv_count_bits(&pos[i],size/2);
+    neg_count = bv_count_bits(&neg[i],size/2);
+    // fprintf(stdout, "size:%d pos_count:%d neg_count:%d pos:",size,pos_count,neg_count);
+    // bv_print(stdout, &pos[i], size/2);
+    // fprintf(stdout, " neg:");
+    // bv_print(stdout, &neg[i], size/2);
+    // fprintf(stdout, "\n");
+    if (pos_count+neg_count == size/2){
+      is_fat[i] = 1;
+      // fprintf(stdout, "Principal ideal is balanced!\n");
+    }
 
 #ifdef _DEBUG
     if(is_slim[i]) {
@@ -153,6 +172,7 @@ long enumerate_balanced_thickenings(doublequotient_t *dq, enumeration_callback c
   info.principal_pos = (bitvec_t*)malloc(info.size*sizeof(bitvec_t));
   info.principal_neg = (bitvec_t*)malloc(info.size*sizeof(bitvec_t));
   info.principal_is_slim = (int*)malloc(info.size*sizeof(int));
+  info.principal_is_fat = (int*)malloc(info.size*sizeof(int));
 
   // the algorithm only works if the opposition pairing does not stabilize any element
   // if this happens, there can be no balanced thickenings
@@ -163,7 +183,7 @@ long enumerate_balanced_thickenings(doublequotient_t *dq, enumeration_callback c
   // we can only handle bitvectors up to BV_BLOCKSIZE*BV_RANK bits, but we only store half of the weyl group
   ERROR(info.size > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
 
-  generate_principal_ideals(dq, info.principal_pos, info.principal_neg, info.principal_is_slim);
+  generate_principal_ideals(dq, info.principal_pos, info.principal_neg, info.principal_is_slim, info.principal_is_fat);
 
   // enumerate balanced ideals
   bitvec_t pos, neg;
@@ -173,6 +193,49 @@ long enumerate_balanced_thickenings(doublequotient_t *dq, enumeration_callback c
     count += enumerate_tree(&info, &pos, &neg, i, 0, 0);
 
   free(info.principal_is_slim);
+  free(info.principal_pos);
+  free(info.principal_neg);
+
+  return count;
+}
+
+long enumerate_principal_balanced_thickenings(doublequotient_t *dq, enumeration_callback callback, void *callback_data)
+{
+  long count = 0;
+  enumeration_info_t info;
+
+  info.size = dq->count;
+  info.callback = callback;
+  info.callback_data = callback_data;
+  info.principal_pos = (bitvec_t*)malloc(info.size*sizeof(bitvec_t));
+  info.principal_neg = (bitvec_t*)malloc(info.size*sizeof(bitvec_t));
+  info.principal_is_slim = (int*)malloc(info.size*sizeof(int));
+  info.principal_is_fat = (int*)malloc(info.size*sizeof(int));
+
+  // the algorithm only works if the opposition pairing does not stabilize any element
+  // if this happens, there can be no balanced thickenings
+  for(int i = 0; i < dq->count; i++)
+    if(dq->cosets[i].opposite->min->id == dq->cosets[i].min->id)
+      return 0;
+
+  // we can only handle bitvectors up to BV_BLOCKSIZE*BV_RANK bits, but we only store half of the weyl group
+  ERROR(info.size > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
+
+  generate_principal_ideals(dq, info.principal_pos, info.principal_neg, info.principal_is_slim, info.principal_is_fat);
+
+  // enumerate balanced ideals
+  bitvec_t pos, neg;
+  bv_clear(&pos);
+  bv_clear(&neg);
+  for (int i=0; i<info.size; i++){
+    if (info.principal_is_slim[i] && info.principal_is_fat[i]){
+      // fprintf(stdout,"Balanced principal ideal found!");
+      count += principal(&pos, i, &info);
+    }
+  }
+
+  free(info.principal_is_slim);
+  free(info.principal_is_fat);
   free(info.principal_pos);
   free(info.principal_neg);
 

@@ -130,6 +130,18 @@ void json_balanced_thickening_callback(const bitvec_t *pos, int size, const enum
   }
 }
 
+void json_principal_balanced_thickening_callback(const bitvec_t *pos, int i, const enumeration_info_t *ei)
+{
+  static long totcount = 0;
+  if (totcount>0)
+    printf(",\n");
+  info_t *info = (info_t*)ei->callback_data;
+  printf("{\"id\":%d, \"gen\": ", i);
+  totcount++;
+  printf("\"%s\"", alphabetize(&info->dq->group[i], stringbuffer));
+  printf("}");
+}
+
 void json_balanced_thickening_simple_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
 {
   long *count = (long*)ei->callback_data;
@@ -156,7 +168,8 @@ int main(int argc, const char *argv[])
 
   // read arguments
 
-  ERROR(argc < 3, "Too few arguments!\n\nUsage is \"%s A2A3\" with\nA2,A3 simple Weyl factors.\n\n",argv[0]);
+  // Add back in the left/right invariance
+  ERROR(argc < 3, "Error: too few arguments!\n\nUsage is \"%s CMD A2A3\" with\nCMD one of 'json','elts','ideals', or 'graphviz' and A2,A3 simple Weyl factors.\n\n",argv[0]);
 
   
   // Count the number of simple factors in the semisimple Weyl group
@@ -277,6 +290,44 @@ int main(int argc, const char *argv[])
     weyl_destroy(wgroup);
   }
   
+  // Print out the principal balanced ideals
+  if (strcmp(argv[1],"principal")==0) {
+    dq = weyl_generate_bruhat(type, 0, 0);
+    // Check if there were no balanced ideals
+    fixpoints = 0;
+    for(int i = 0; i < dq->count; i++)
+      if(dq->cosets[i].opposite == &dq->cosets[i]) {
+        if(fixpoints == 0)
+          fprintf(stdout, "No balanced ideals since the longest element fixes the following cosets:");
+        fprintf(stdout, " %s", alphabetize(dq->cosets[i].min, stringbuffer));
+        fixpoints++;
+      }
+    if(fixpoints)
+      fprintf(stdout, "\n\n");
+
+    // If there were balanced ideals then print a message
+    if(!fixpoints) {
+      int *buffer = (int*)malloc(dq->count*sizeof(int));
+
+      info_t info;
+      info.dq = dq;
+      info.rank = weyl_rank(type);
+      info.order = weyl_order(type);
+      info.positive = weyl_positive(type);
+      info.buffer = buffer;
+
+      ERROR(dq->count > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
+
+      long count;
+      fprintf(stdout, ",\n\"principal_balanced_ideals\":\n");
+      count = enumerate_principal_balanced_thickenings(dq, json_principal_balanced_thickening_callback, &info);
+      fprintf(stdout, "],");
+
+      fprintf(stdout, "\n\"num_principal_balanced_ideals\":%ld", count);
+    }
+    // Deconstruct the dq
+    weyl_destroy_bruhat(dq);
+  }
   // Print out the balanced ideals
   if (strcmp(argv[1],"ideals")==0) {
     dq = weyl_generate_bruhat(type, 0, 0);

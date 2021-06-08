@@ -193,4 +193,14 @@ static inline void bv_negate(const bitvec_t *from, bitvec_t *to)
     to->v[i] = ~from->v[i];
 }
 
+static inline int bv_count_bits(const bitvec_t *vec,int len)
+{
+  int count = 0;
+  for(int i=0; i<len;i++)
+  {
+    count += bv_get_bit((vec), i);
+  }
+  return count;
+}
+
 #endif /* __BITVEC_H__ */

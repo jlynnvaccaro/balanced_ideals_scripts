@@ -11,6 +11,7 @@ struct enumeration_info {
   bitvec_t *principal_pos;
   bitvec_t *principal_neg;
   int *principal_is_slim;
+  int *principal_is_fat;
   void (*callback)(const bitvec_t *, int, const struct enumeration_info *);
   void *callback_data;
 };
@@ -20,5 +21,6 @@ typedef struct enumeration_info enumeration_info_t;
 
 // enumerating balanced thickenings
 long enumerate_balanced_thickenings(doublequotient_t *dq, enumeration_callback callback, void *callback_data);
+long enumerate_principal_balanced_thickenings(doublequotient_t *dq, enumeration_callback callback, void *callback_data);
 
 #endif
