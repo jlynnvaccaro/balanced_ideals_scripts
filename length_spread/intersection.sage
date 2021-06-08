@@ -153,7 +153,7 @@ def print_core_hull(infile):
             exit(1)
     else:
         print("No cartan matrix to compare")
-    exit()
+    # exit()
     core = set(principal_ideal(G.long_element()))
     hull = set()
     ideals = d["balanced_ideals"]
