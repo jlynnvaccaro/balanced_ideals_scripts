@@ -7,6 +7,7 @@
 #include <time.h>
 
 char stringbuffer[100];
+char stringbuffer2[100];
 
 typedef struct {
   doublequotient_t *dq;
@@ -30,7 +31,7 @@ static char* alphabetize(weylgroup_element_t *e, char *str)
   return str;
 }
 
-void balanced_thickening_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
+void json_balanced_thickening_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
 {
   static long totcount = 0;
 
@@ -129,7 +130,7 @@ void balanced_thickening_callback(const bitvec_t *pos, int size, const enumerati
   }
 }
 
-void balanced_thickening_simple_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
+void json_balanced_thickening_simple_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
 {
   long *count = (long*)ei->callback_data;
 
@@ -188,11 +189,34 @@ int main(int argc, const char *argv[])
   order = weyl_order(type);              // number of Weyl group elements
   positive = weyl_positive(type);        // number of positive roots
 
+  
+  // If command is graphviz, then print only the graphviz
+  if(strcmp(argv[1],"graphviz")==0) {
+    dq = weyl_generate_bruhat(type, 0, 0);
+    fprintf(stdout, "digraph %s {\n",argv[2]);
+    for(int i = 0; i < dq->count; i++){
+      for(doublecoset_list_t *current = dq->cosets[i].bruhat_lower; current; current = current->next){
+	      fprintf(stdout, "%s -> %s;\n",
+		    alphabetize(dq->cosets[i].min, stringbuffer),
+		    alphabetize(current->to->min, stringbuffer2));
+      }
+    }
+    fprintf(stdout, "}\n");
+
+    // Deconstruct and return
+    weyl_destroy_bruhat(dq);
+    free(type.factors);
+    return 0;
+  }
+
+  // If command is anything else, start with the general JSON output.
+
+  // Create the cartan matrix
   int *cartan_matrix;
   cartan_matrix = (int*)malloc(rank*rank*sizeof(int));
   weyl_cartan_matrix(type, cartan_matrix); //cartan matrix
-
-  // JSON OUTPUT BEGINS HERE
+  
+  // Create the JSON-formatted timestamp
   time_t now;
   struct tm * local;
   char buffer [80];
@@ -200,6 +224,7 @@ int main(int argc, const char *argv[])
   local = localtime(&now);
   strftime(buffer,80,"%FT%X.000Z",local);
 
+  // Output the general JSON stuff
   fprintf(stdout,"{");
   fprintf(stdout,"\"timestamp\": \"%s\",\n",buffer); // TODO: Make it more like JSON
   fprintf(stdout,"\"creator\": \"%s\",\n",argv[0]);
@@ -215,29 +240,29 @@ int main(int argc, const char *argv[])
   fprintf(stdout, "],\n");
   fprintf(stdout, "\"rank\": %d,\n\"weyl_order\": %d,\n\"max_len\": %d,\n", rank, order, positive);
   
+  // Print out the cartan matrix, formatted nicely
   fprintf(stdout, "\"cartan_matrix\":\n[");
   for (int i=0; i<rank; i++) {
-      fprintf(stdout, "[ ");
-      for (int j=0; j<rank; j++){
-          // Make the spacing nice
-          // TODO: Could also be rank*j+i, which will make the transpose.
-          if (cartan_matrix[rank*i+j]>=0) {
-              fprintf(stdout, " ");
-          }
-          fprintf(stdout, "%d",cartan_matrix[rank*i+j]);
-          if (j<rank-1) {
-            fprintf(stdout, ", ");
-          } else {
+    fprintf(stdout, "[ ");
+    for (int j=0; j<rank; j++){
+        // Make the spacing nice
+        if (cartan_matrix[rank*i+j]>=0) {
             fprintf(stdout, " ");
-          }
-      }
-      if (i<rank-1){
-        fprintf(stdout, "],\n ");
-      } else {
-        fprintf(stdout, "]]");
-      }
+        }
+        fprintf(stdout, "%d",cartan_matrix[rank*i+j]);
+        if (j<rank-1) {
+          fprintf(stdout, ", ");
+        } else {
+          fprintf(stdout, " ");
+        }
+    }
+    if (i<rank-1){
+      fprintf(stdout, "],\n ");
+    } else {
+      fprintf(stdout, "]]");
+    }
   }
-  
+
   // print out weylgroup elements
   if (strcmp(argv[1],"elts")==0) {
     weylgroup_t *wgroup = weyl_generate(type); // TODO: This makes the code take much longer to run
@@ -282,15 +307,14 @@ int main(int argc, const char *argv[])
 
       long count;
       fprintf(stdout, ",\n\"balanced_ideals\":\n");
-      count = enumerate_balanced_thickenings(dq, balanced_thickening_callback, &info);
-      fprintf(stdout, "]");
+      count = enumerate_balanced_thickenings(dq, json_balanced_thickening_callback, &info);
+      fprintf(stdout, "],");
 
-      // fprintf(stdout, "Found %ld balanced ideal%s\n", count, count == 1 ? "" : "s");
+      fprintf(stdout, "\n\"num_balanced_ideals\":%ld", count);
     }
     // Deconstruct the dq
     weyl_destroy_bruhat(dq);
   }
-
   fprintf(stdout, "\n}\n");
 
   // free memory back
