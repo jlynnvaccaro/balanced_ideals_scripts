@@ -94,15 +94,16 @@ static void generate_principal_ideals(doublequotient_t *dq, bitvec_t *pos, bitve
     queue_put(&queue, i);
     while((current = queue_get(&queue)) != -1)
       for(edge = dq->cosets[current].bruhat_lower; edge; edge = edge->next)
-	if(!principal[edge->to->index]) {
-	  principal[edge->to->index] = 1;
-	  queue_put(&queue, edge->to->index);
-	}
+	      if(!principal[edge->to->index]) {
+	        principal[edge->to->index] = 1;
+	        queue_put(&queue, edge->to->index);
+	      }
 
     // copy the first half into bitvectors
     bv_clear(&pos[i]);
     bv_clear(&neg[i]);
     is_slim[i] = 1;
+    is_fat[i] = 1;
     for(int j = 0; j < size/2; j++)
       if(principal[j])
 	      bv_set_bit(&pos[i], j);
@@ -111,19 +112,10 @@ static void generate_principal_ideals(doublequotient_t *dq, bitvec_t *pos, bitve
 	      bv_set_bit(&neg[i], j);
 	      if(bv_get_bit(&pos[i], j))
 	        is_slim[i] = 0;
+      } else {
+        if(!bv_get_bit(&pos[i], j))
+	        is_fat[i] = 0;
       }
-    int pos_count,neg_count;
-    pos_count = bv_count_bits(&pos[i],size/2);
-    neg_count = bv_count_bits(&neg[i],size/2);
-    // fprintf(stdout, "size:%d pos_count:%d neg_count:%d pos:",size,pos_count,neg_count);
-    // bv_print(stdout, &pos[i], size/2);
-    // fprintf(stdout, " neg:");
-    // bv_print(stdout, &neg[i], size/2);
-    // fprintf(stdout, "\n");
-    if (pos_count+neg_count == size/2){
-      is_fat[i] = 1;
-      // fprintf(stdout, "Principal ideal is balanced!\n");
-    }
 
 #ifdef _DEBUG
     if(is_slim[i]) {

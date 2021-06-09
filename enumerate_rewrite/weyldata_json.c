@@ -56,9 +56,7 @@ void json_balanced_thickening_callback(const bitvec_t *pos, int size, const enum
 	  right_invariance &= ~BIT(j);
       }
     }
-    if (totcount==0){
-      printf("[");
-    } else {
+    if (totcount!=0){
       printf(",\n");
     }
 
@@ -319,7 +317,7 @@ int main(int argc, const char *argv[])
       ERROR(dq->count > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
 
       long count;
-      fprintf(stdout, ",\n\"principal_balanced_ideals\":\n");
+      fprintf(stdout, ",\n\"principal_balanced_ideals\":\n[");
       count = enumerate_principal_balanced_thickenings(dq, json_principal_balanced_thickening_callback, &info);
       fprintf(stdout, "],");
 
@@ -357,7 +355,7 @@ int main(int argc, const char *argv[])
       ERROR(dq->count > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
 
       long count;
-      fprintf(stdout, ",\n\"balanced_ideals\":\n");
+      fprintf(stdout, ",\n\"balanced_ideals\":\n[");
       count = enumerate_balanced_thickenings(dq, json_balanced_thickening_callback, &info);
       fprintf(stdout, "],");
 
