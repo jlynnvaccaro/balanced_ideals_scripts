@@ -140,6 +140,18 @@ def perp(I):
     I_C = set(principal_ideal(w0)) - I
     return {w0*x for x in I_C}
 
+def complement(I):
+    """Returns I_C in the Weyl group W."""
+    x = next(iter(I))
+    W = x.parent()
+    w0 = W.long_element()
+    return set(principal_ideal(w0)) - I
+
+def x_in_wox(x):
+    """Returns true if x in <wo x>"""
+    W = x.parent()
+    w0 = W.long_element()
+    return x in principal_ideal(w0*x)
 
 def print_core_hull(infile):
     d = utils.load_json_data(infile)
@@ -184,6 +196,11 @@ def print_core_hull(infile):
     
     print("Does core-perp=hull?",core_perp == hull)
     print("Does hull-perp=core?",hull_perp == core)
+    
+    core_condition = [x_in_wox(x) for x in core]
+    notcore_condition = [x_in_wox(x) for x in complement(core)]
+    print("Does core condition?",all(core_condition))
+    print("Does notcore condition?",not any(notcore_condition))
 
 # Actual script starts here...
 # TODO: maybe move the functions to utils?
