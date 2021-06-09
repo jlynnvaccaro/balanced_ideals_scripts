@@ -45,8 +45,8 @@ def ab_to_s1s2(W, s):
     word = W.one()
     if s == "1":
         return word
-    for c in s:
-        word *= gens[alphabet.index(c)+1]
+    for c in s[::-1]:
+        word = gens[alphabet.index(c)+1]*word
     return word
 
 
