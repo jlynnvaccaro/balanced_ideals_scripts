@@ -1,10 +1,12 @@
 class SmoothnessChecker():
     """Superclass for smoothness checkers by cartan type. Defines shared functions."""
-    def __init__(self, n):
+    def __init__(self, type, n):
         """bad_patterns should be defined in the subclass."""
         self.alphabet="abcdefghijklmnopqrstuvwxyz"
         self.n = n
         self.bad_patterns = ()
+        print("\n{} smoothness checker".format(type))
+        print("----------------------")
 
     def letter_to_oneline(self, c, L=None):
         """Implement in the subclasses"""
@@ -39,9 +41,9 @@ class SmoothnessChecker():
                         pattern = self.piece_to_pattern(piece)
                         if pattern in self.bad_patterns:
                             print(" * Found a bad pattern",pattern,"at indices {} {} {} {} in {}".format(a,b,c,d,oneline))
-                            print(" * Balanced ideal <{}> is not smooth.\n".format(word))
+                            print(" * Balanced ideal <{}> is not smooth.".format(word))
                             return False
                         # else:
                         #     print("Good pattern:",pattern)
-        print("   Balanced ideal <{}> is smooth!\n".format(word))
+        print("   Balanced ideal <{}> is smooth!".format(word))
         return True

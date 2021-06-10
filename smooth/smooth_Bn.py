@@ -2,19 +2,20 @@ from smooth import *
 
 class TypeB(SmoothnessChecker):
     def __init__(self, n):
-        super().__init__(n)
+        super().__init__("B{}".format(n),n)
         self.bad_patterns = ([-2,-1],[1,2,-3],[1,-2,-3],[-1,2,-3],[2,-1,-3],[-2,1,-3],[3,-2,1],[2,-4,3,1],[-2,-4,3,1],[3,4,1,2],[3,4,-1,2],[-3,4,1,2],[4,1,3,-2],[4,-1,3,-2],[4,2,3,1],[4,2,3,-1],[-4,2,3,1])
 
     def letter_to_oneline(self, c, L=None):
         """Given a letter e.g. 'a', updates a list by applying the SIGNED permutation."""
         if L is None:
             L = [x for x in range(self.n)]
+        L = L[::-1]
         if c == 'a':
-            L[0] = -L[0]
+            L[self.n-1] = -L[self.n-1]
         else:
             i = self.alphabet.index(c)
-            L[i-1],L[i] = L[i-1],L[i]
-        return L
+            L[self.n-i-1],L[self.n-i] = L[self.n-i-1],L[self.n-i]
+        return L[::-1]
 
 B2 = TypeB(2)
 B2.schubert_smooth("ba")

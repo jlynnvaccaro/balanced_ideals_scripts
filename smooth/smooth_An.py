@@ -2,7 +2,7 @@ from smooth import *
 
 class TypeA(SmoothnessChecker):
     def __init__(self,n):
-        super().__init__(n+1)
+        super().__init__("A{}".format(n),n+1)
         self.bad_patterns = ([3,4,1,2], [4,2,3,1])
 
     def letter_to_oneline(self, c, L=None):
