@@ -140,6 +140,16 @@ void json_principal_balanced_thickening_callback(const bitvec_t *pos, int i, con
   printf("}");
 }
 
+void json_core_callback(const bitvec_t *pos, int i, const enumeration_info_t *ei)
+{
+  static long totcount = 0;
+  if (totcount>0)
+    printf(",");
+  info_t *info = (info_t*)ei->callback_data;
+  totcount++;
+  printf("\"%s\"", alphabetize(&info->dq->group[i], stringbuffer));
+}
+
 void json_balanced_thickening_simple_callback(const bitvec_t *pos, int size, const enumeration_info_t *ei)
 {
   long *count = (long*)ei->callback_data;
@@ -326,6 +336,48 @@ int main(int argc, const char *argv[])
     // Deconstruct the dq
     weyl_destroy_bruhat(dq);
   }
+
+  // Print out the principal balanced ideals
+  if (strcmp(argv[1],"core")==0) {
+    dq = weyl_generate_bruhat(type, 0, 0);
+    // Check if there were no balanced ideals
+    fixpoints = 0;
+    for(int i = 0; i < dq->count; i++)
+      if(dq->cosets[i].opposite == &dq->cosets[i]) {
+        if(fixpoints == 0)
+          fprintf(stdout, "No balanced ideals since the longest element fixes the following cosets:");
+        fprintf(stdout, " %s", alphabetize(dq->cosets[i].min, stringbuffer));
+        fixpoints++;
+      }
+    if(fixpoints)
+      fprintf(stdout, "\n\n");
+
+    // If there were balanced ideals then print a message
+    if(!fixpoints) {
+      int *buffer = (int*)malloc(dq->count*sizeof(int));
+
+      info_t info;
+      info.dq = dq;
+      info.rank = weyl_rank(type);
+      info.order = weyl_order(type);
+      info.positive = weyl_positive(type);
+      info.buffer = buffer;
+
+      ERROR(dq->count > 2*BV_BLOCKSIZE*BV_RANK, "We can handle at most %d cosets. Increase BV_RANK if more is needed.\n", 2*BV_BLOCKSIZE*BV_RANK);
+
+      long count;
+      fprintf(stdout, ",\n\"core\": [");
+      count = enumerate_core(dq, json_core_callback, &info);
+      fprintf(stdout, "],");
+
+      fprintf(stdout, "\n\"num_core\":%ld", count);
+    }
+    // Deconstruct the dq
+    weyl_destroy_bruhat(dq);
+  }
+
+
+
   // Print out the balanced ideals
   if (strcmp(argv[1],"ideals")==0) {
     dq = weyl_generate_bruhat(type, 0, 0);

@@ -22,5 +22,6 @@ typedef struct enumeration_info enumeration_info_t;
 // enumerating balanced thickenings
 long enumerate_balanced_thickenings(doublequotient_t *dq, enumeration_callback callback, void *callback_data);
 long enumerate_principal_balanced_thickenings(doublequotient_t *dq, enumeration_callback callback, void *callback_data);
+long enumerate_core(doublequotient_t *dq, enumeration_callback callback, void *callback_data);
 
 #endif
