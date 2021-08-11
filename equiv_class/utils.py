@@ -1,4 +1,13 @@
 import json
+import datetime
+
+def add_header(d,version="0.0.1"):
+    """Adds the json header to files"""
+    now = datetime.datetime.now()
+    json_dt = now.isoformat()
+    d["timestamp"] = json_dt
+    d["creator"] = __file__
+    d["version"] = version
 
 def get_ideal_stats(line):
     """Gets the max_length of the ideal and the number of generators"""
